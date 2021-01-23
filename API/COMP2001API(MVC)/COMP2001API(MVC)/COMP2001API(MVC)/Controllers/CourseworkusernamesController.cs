@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using COMP2001API_MVC_.Models;
+using System.Text;
 
 namespace COMP2001API_MVC_.Controllers
 {
@@ -49,20 +50,20 @@ namespace COMP2001API_MVC_.Controllers
             return View();
         }
 
-        // POST: Courseworkusernames/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("UserId,FirstName,LastName,EmailAddress,CurrentPassword")] Courseworkusername courseworkusername)
+        //Calls Stored Procedure to register a given user
+        [HttpPost, ActionName("Register")]
+        public IActionResult Register(Register register)
         {
-            if (ModelState.IsValid)
-            {
-                _context.Add(courseworkusername);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(courseworkusername);
+            string  salt = SaltHash(5);
+            var rowsaffected = _context.Database.ExecuteSqlRaw("EXEC Register @firstName, @lastName, @emailAddress, @currentPassword",
+                new SqlParameter("@firstName", register.firstName.ToString()),
+                new SqlParameter("@lastName", register.lastName.ToString()),
+                new SqlParameter("@emailAddress", register.emailAddress.ToString()),
+                new SqlParameter("@currentPassword", HashGenerator(register.currentPassword.ToString(), salt)));
+
+            ViewBag.Success = rowsaffected;
+
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Courseworkusernames/Edit/5
@@ -81,39 +82,23 @@ namespace COMP2001API_MVC_.Controllers
             return View(courseworkusername);
         }
 
-        // POST: Courseworkusernames/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("UserId,FirstName,LastName,EmailAddress,CurrentPassword")] Courseworkusername courseworkusername)
-        {
-            if (id != courseworkusername.UserId)
-            {
-                return NotFound();
-            }
 
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(courseworkusername);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!CourseworkusernameExists(courseworkusername.UserId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(courseworkusername);
+        //Calls Stored Procedure to update a given user
+        [HttpPost, ActionName("UpdateUser")]
+        public IActionResult UpdateUser(UpdateUser updateUser)
+        {
+
+            string salt = SaltHash(5);
+            var rowsaffected = _context.Database.ExecuteSqlRaw("EXEC UpdateUser @FirstName, @LastName, @EmailAddress, @CurrentPassword, @UserID",
+                new SqlParameter("@FirstName", updateUser.FirstName.ToString()),
+                new SqlParameter("@LastName", updateUser.LastName.ToString()),
+                new SqlParameter("@EmailAddress", updateUser.EmailAddress.ToString()),
+                new SqlParameter("@CurrentPassword", HashGenerator(updateUser.CurrentPassword.ToString(), salt)),
+                new SqlParameter("@UserID", updateUser.UserID.ToString()));
+
+            ViewBag.Success = rowsaffected;
+
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Courseworkusernames/Delete/5
@@ -134,31 +119,82 @@ namespace COMP2001API_MVC_.Controllers
             return View(courseworkusername);
         }
 
-        // POST: Courseworkusernames/Delete/5
-        //[HttpPost, ActionName("Delete")]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> DeleteConfirmed(int id)
-        //{
-        //    var courseworkusername = await _context.Courseworkusernames.FindAsync(id);
-        //    _context.Courseworkusernames.Remove(courseworkusername);
-        //    await _context.SaveChangesAsync();
-        //    return RedirectToAction(nameof(Index));
-        //}
-
         private bool CourseworkusernameExists(int id)
         {
             return _context.Courseworkusernames.Any(e => e.UserId == id);
         }
 
+        //Calls Stored Procedure to delete a given user
         [HttpPost, ActionName("DeleteUser")]
         public IActionResult DeleteUser(DeleteUser deleteUser)
         {
-            var rowsaffected = _context.Database.ExecuteSqlRaw("EXEC DeleteUser @userID", 
+            var rowsaffected = _context.Database.ExecuteSqlRaw("EXEC DeleteUser @userID",
                 new SqlParameter("@userID", deleteUser.UserID.ToString()));
 
             ViewBag.Success = rowsaffected;
 
             return RedirectToAction(nameof(Index));
+        }
+        // GET: Courseworkusernames/Validate/5
+        public async Task<IActionResult> Validate(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var courseworkusername = await _context.Courseworkusernames
+                .FirstOrDefaultAsync(m => m.UserId == id);
+            if (courseworkusername == null)
+            {
+                return NotFound();
+            }
+
+            return View(courseworkusername);
+        }
+        //Calls Stored Procedure to validate a given user
+        [HttpPost, ActionName("ValidateUser")]
+        public IActionResult ValidateUser(ValidateUser validateUser)
+        {
+            var rowsaffected = _context.Database.ExecuteSqlRaw("EXEC ValidateUser @EmailAddress, @CurrentPassword",
+                new SqlParameter("@EmailAddress", validateUser.EmailAddress.ToString()),
+                new SqlParameter("@CurrentPassword", validateUser.CurrentPassword.ToString()));
+
+
+            ViewBag.Success = rowsaffected;
+
+            return RedirectToAction(nameof(Index));
+        }
+        
+        //Converts Hex to a String
+        public static string HexConverter(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+            foreach (byte b in ba)
+            {
+                hex.AppendFormat("{0:x2}", b);
+            }
+
+            return hex.ToString();
+        }
+
+        //Creates the Salt Hash
+        public string SaltHash(int size)
+        {
+            var rng = new System.Security.Cryptography.RNGCryptoServiceProvider();
+            var buff = new Byte[size];
+            rng.GetBytes(buff);
+            return Convert.ToBase64String(buff);
+        }
+
+        //Takes Password and Salt Hash and returns the Hashed finished hash value
+        public string HashGenerator(string input, string salt)
+        {
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(input + salt);
+            System.Security.Cryptography.SHA256Managed sha256hashstring = new System.Security.Cryptography.SHA256Managed();
+            byte[] hash = sha256hashstring.ComputeHash(bytes);
+
+            return HexConverter(hash);
         }
     }
 }

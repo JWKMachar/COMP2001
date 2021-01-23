@@ -175,3 +175,4 @@ C:\Users\User\source\repos\COMP2001API(MVC)\COMP2001API(MVC)\obj\Debug\netcoreap
 C:\Users\User\source\repos\COMP2001API(MVC)\COMP2001API(MVC)\obj\Debug\netcoreapp3.1\Razor\Views\Courseworkusernames\Details.cshtml.g.cs
 C:\Users\User\source\repos\COMP2001API(MVC)\COMP2001API(MVC)\obj\Debug\netcoreapp3.1\Razor\Views\Courseworkusernames\Edit.cshtml.g.cs
 C:\Users\User\source\repos\COMP2001API(MVC)\COMP2001API(MVC)\obj\Debug\netcoreapp3.1\Razor\Views\Courseworkusernames\Index.cshtml.g.cs
+C:\Users\User\source\repos\COMP2001API(MVC)\COMP2001API(MVC)\obj\Debug\netcoreapp3.1\Razor\Views\Courseworkusernames\Validate.cshtml.g.cs
